@@ -2,7 +2,7 @@
 
 > Single image, two roles: `vllm serve` (engine + KV connector) and
 > `lmcache server` (cache service). Both must come from the same image build.
-> Validated: Qwen3.6-27B on 4× MI50, TP=4, ROCm 7.2.1 / torch 2.11.
+> Validated: Qwen3.6-27B on 4× MI50, TP=2, ROCm 7.2.1 / torch 2.11.
 
 ### 1. Build the image (once)
 
@@ -60,17 +60,8 @@ docker run -d --name vllm-qwen \
 Three flags make it LMCache-enabled (everything else is stock):
 `--mamba-cache-mode align`, `--max-num-batched-tokens 1567`, `--kv-transfer-config ...`
 
-### 4. Verify
 
-```bash
-# long prompt twice → second request 8-20× faster TTFT
-curl :8443/v1/completions -H 'Content-Type: application/json' \
-  -d '{"model":"...","prompt":"<756+ tokens>","max_tokens":1}'
-docker logs lmcache-server 2>&1 | grep -E "Stored|Retrieved"
-# expect: Stored 784 tokens ... / Retrieved 3136 tokens ...
-```
-
-| Measured (4k-token prompt, 4× MI50) | TTFT | Effective PP |
+| Measured (4k-token prompt, 4× MI50) | TTFT | Effective PP | (PCI 3.0 DDR3 , NVME)
 |---|---|---|
 | Cold | 12.5 s | ~320 tok/s |
 | Cache hit (RAM or VRAM) | 0.6 s | ~6,900 tok/s |
