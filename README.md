@@ -1,3 +1,86 @@
+## LMCache + vLLM on gfx906 (MI50/MI60) — Quick Start
+
+> Single image, two roles: `vllm serve` (engine + KV connector) and
+> `lmcache server` (cache service). Both must come from the same image build.
+> Validated: Qwen3.6-27B on 4× MI50, TP=4, ROCm 7.2.1 / torch 2.11.
+
+### 1. Build the image (once)
+
+```bash
+./build_and_push_lmcache_docker.sh
+# override: IMAGE_NAME=... BASE_IMAGE=... LMCACHE_REF=dev ./build_and_push_lmcache_docker.sh
+```
+
+Builds LMCache with HIP extensions (`BUILD_WITH_HIP=1 CXX=hipcc`) on top of
+the mobydick base image. Takes ~5 min; the vLLM base layer is not rebuilt.
+
+### 2. Start the LMCache server (before vLLM)
+
+```bash
+mkdir -p /path/to/lmcache-disk
+
+docker run -d --name lmcache-server --restart unless-stopped \
+  --network host --device /dev/kfd --device /dev/dri \
+  --security-opt seccomp=unconfined --ipc=host \
+  --env HIP_VISIBLE_DEVICES=0,1,2,3 \
+  -v /path/to/lmcache-disk:/lmcache-disk \
+  aiinfos/vllm-gfx906-lmcache:latest \
+  lmcache server \
+    --host 0.0.0.0 --port 5555 --http-port 8082 \
+    --chunk-size 784 --separate-object-groups \
+    --l1-size-gb 60 --eviction-policy LRU \
+    --l2-adapter '{"type":"fs","base_path":"/lmcache-disk"}'
+```
+
+- Server must see every GPU the vLLM workers use (CUDA-IPC requirement)
+- L1 = 60 GB pinned RAM, L2 = NVMe (content-addressed, survives restarts)
+- Chunk size **784** = Qwen3.6-27B's unified block size — do not change it
+  unless vLLM logs a different `Setting attention block size` value
+
+### 3. Start vLLM
+
+```bash
+docker run -d --name vllm-qwen \
+  --network host --device /dev/kfd --device /dev/dri \
+  --group-add video --security-opt seccomp=unconfined --ipc=host \
+  --env HIP_VISIBLE_DEVICES=0,1,2,3 \
+  --env FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE \
+  -v /path/to/models:/models \
+  aiinfos/vllm-gfx906-lmcache:latest \
+  vllm serve /models/Qwen3.6-27B-INT8-AutoRound \
+    --dtype float16 --tensor-parallel-size 4 \
+    --gpu-memory-utilization 0.95 \
+    --enable-prefix-caching --mamba-cache-mode align \
+    --max-num-batched-tokens 1567 \
+    --enable-chunked-prefill --max-num-seqs 16 \
+    --trust-remote-code --host 0.0.0.0 --port 8443 \
+    --kv-transfer-config '{"kv_connector":"LMCacheMPConnector","kv_role":"kv_both","kv_connector_extra_config":{"lmcache.mp.host":"tcp://127.0.0.1","lmcache.mp.port":5555}}'
+```
+
+Three flags make it LMCache-enabled (everything else is stock):
+`--mamba-cache-mode align`, `--max-num-batched-tokens 1567`, `--kv-transfer-config ...`
+
+### 4. Verify
+
+```bash
+# long prompt twice → second request 8-20× faster TTFT
+curl :8443/v1/completions -H 'Content-Type: application/json' \
+  -d '{"model":"...","prompt":"<756+ tokens>","max_tokens":1}'
+docker logs lmcache-server 2>&1 | grep -E "Stored|Retrieved"
+# expect: Stored 784 tokens ... / Retrieved 3136 tokens ...
+```
+
+| Measured (4k-token prompt, 4× MI50) | TTFT | Effective PP |
+|---|---|---|
+| Cold | 12.5 s | ~320 tok/s |
+| Cache hit (RAM or VRAM) | 0.6 s | ~6,900 tok/s |
+| Cache hit (NVMe) | 0.8 s | ~5,250 tok/s |
+
+Full guide: [docs/lmcache-gfx906.md](docs/lmcache-gfx906.md) — tuning,
+troubleshooting, benchmark methodology.
+
+---
+
 ## Mini Install Guide for GFX906
 
 ### 🐳 Using Pre-built Docker Image (Recommended)
