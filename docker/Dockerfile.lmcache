@@ -1,0 +1,71 @@
+# Build LMCache (HIP) on top of the vLLM GFX906 mobydick image.
+# Produces a single image that serves both roles:
+#   - vLLM with the LMCacheMPConnector importable inside the engine
+#   - `lmcache server` (standalone MP-mode cache server)
+#
+# The LMCache source must be in the build context as ./LMCache
+# (git clone https://github.com/LMCache/LMCache.git LMCache).
+#
+# Build:
+#   docker build -t <TAG> \
+#     --build-arg BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:latest \
+#     -f docker/Dockerfile.lmcache .
+#
+# Validated on: MI50 (gfx906), mobydick ROCm 7.2.1 / torch 2.11.0,
+# LMCache dev@g4521c3f9, Qwen3.6-27B (Qwen3_5ForConditionalGeneration).
+
+# syntax=docker/dockerfile:1.4
+ARG BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:latest
+FROM ${BASE_IMAGE} AS builder
+
+# Build deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git cmake ninja-build pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy LMCache source (from the build context)
+COPY LMCache /workspace/LMCache
+WORKDIR /workspace/LMCache
+
+# Install build requirements (setuptools etc already in base)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install ninja packaging 'setuptools>=77.0.3,<81.0.0' 'setuptools_scm>=8' wheel
+
+# Build LMCache wheel with HIP extensions matching the base ROCm / torch.
+# BUILD_WITH_HIP=1 hipifies csrc/ and compiles with hipcc; the resulting
+# lmcache.c_ops ABI-matches the torch inside the base image.
+ENV BUILD_WITH_HIP=1
+ENV CXX=hipcc
+ENV PYTORCH_ROCM_ARCH=gfx906
+ENV ROCM_PATH=/opt/rocm
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 setup.py bdist_wheel --dist-dir=/dist_lmcache
+
+# Verify the wheel was built
+RUN ls -la /dist_lmcache/*.whl
+
+# ─── Final stage: install into a clean copy of the base image ─────────────
+
+FROM ${BASE_IMAGE} AS final
+
+# Copy the built wheel
+COPY --from=builder /dist_lmcache/ /tmp/dist_lmcache/
+
+# CuPy for ROCm 7.x — LMCache's GPU cache context uses cupy.cuda streams
+# for CUDA-IPC reconstruction and host-func dispatch.
+RUN pip install cupy-rocm-7-0
+
+# Install LMCache wheel, then fix dependency conflicts:
+# 1. cufile-python is NVIDIA-only (pulled in by lmcache's common deps);
+#    on ROCm the GDS path routes to hipFile at runtime instead.
+# 2. LMCache's deps bump grpcio past vLLM's pin; restore it.
+RUN pip install /tmp/dist_lmcache/*.whl && rm -rf /tmp/dist_lmcache && \
+    pip uninstall -y cufile-python && \
+    pip install 'grpcio==1.78.0'
+
+# Verify both the Python package and the HIP extension import
+RUN python3 -c "import lmcache; import lmcache.c_ops; print('LMCache + HIP c_ops OK')"
+
+WORKDIR /workspace
+CMD ["/bin/bash"]
