@@ -1,16 +1,20 @@
 #!/bin/bash
 set -e
 
-# Build (and optionally push) the vLLM-gfx906 + LMCache combined image.
+# Build the vLLM-gfx906 + LMCache combined image (local use only).
+#
+# This image is NOT published anywhere — build it locally on your own
+# machine. There is intentionally no push step: the base image comes from
+# the aiinfos/vllm-gfx906-mobydick image, and you layer LMCache on top.
+#
 # Modeled on build_and_push_docker.sh; reuses the mobydick base image
 # rather than rebuilding vLLM from source.
 #
 # Usage:
-#   ./build_and_push_lmcache_docker.sh                       # build only
-#   ./build_and_push_lmcache_docker.sh push <dockerhub-user> # build + push
+#   ./build_lmcache_docker.sh
 #
 # Env overrides:
-#   IMAGE_NAME  (default: aiinfos/vllm-gfx906-lmcache)
+#   IMAGE_NAME  (default: aiinfos/vllm-gfx906-lmcache — local tag only, not pushed)
 #   BASE_IMAGE  (default: aiinfos/vllm-gfx906-mobydick:latest)
 #   LMCACHE_REF (default: dev — a branch/tag/commit of LMCache/LMCache)
 
@@ -39,13 +43,5 @@ DOCKER_BUILDKIT=1 docker build \
     -t "${IMAGE_NAME}:latest" \
     -f docker/Dockerfile.lmcache .
 
-if [ "$1" = "push" ]; then
-    DOCKER_USER="${2:?usage: $0 push <dockerhub-user>}"
-    echo "Pushing to Docker Hub as ${DOCKER_USER}/vllm-gfx906-lmcache:latest ..."
-    docker tag "${IMAGE_NAME}:latest" "${DOCKER_USER}/vllm-gfx906-lmcache:latest"
-    docker login -u "${DOCKER_USER}"
-    docker push "${DOCKER_USER}/vllm-gfx906-lmcache:latest"
-else
-    echo "Build complete. Verify with:"
-    echo "  docker run --rm ${IMAGE_NAME}:latest python3 -c 'import lmcache, lmcache.c_ops, vllm; print(\"OK\")'"
-fi
+echo "Build complete. Verify with:"
+echo "  docker run --rm ${IMAGE_NAME}:latest python3 -c 'import lmcache, lmcache.c_ops, vllm; print(\"OK\")'"

@@ -28,7 +28,7 @@ and CUDA-IPC wrappers are version-matched):
 Build (from the repo root — the script clones LMCache into the context):
 
 ```bash
-./build_and_push_lmcache_docker.sh
+./build_lmcache_docker.sh
 ```
 
 The image layers on top of `aiinfos/vllm-gfx906-mobydick:latest`:

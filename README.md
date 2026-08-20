@@ -7,8 +7,8 @@
 ### 1. Build the image (once)
 
 ```bash
-./build_and_push_lmcache_docker.sh
-# override: IMAGE_NAME=... BASE_IMAGE=... LMCACHE_REF=dev ./build_and_push_lmcache_docker.sh
+./build_lmcache_docker.sh
+# override: IMAGE_NAME=... BASE_IMAGE=... LMCACHE_REF=dev ./build_lmcache_docker.sh
 ```
 
 Builds LMCache with HIP extensions (`BUILD_WITH_HIP=1 CXX=hipcc`) on top of
