@@ -132,6 +132,7 @@ LAN address instead of `tcp://127.0.0.1`.
    forces the next resend through NVMe (logs show `(0 L1, N L2)`).
 
 ## Measured performance (4× MI50, TP=4 / 2× MI50, TP=2 — 4k-token prompts)
+(Dual x99, DDR3 PCI 3.0 4x4x4x4 PLX Active PLX Switch P2P via RCCL)
 
 | Tier | TTFT | Effective PP |
 |---|---|---|
@@ -139,20 +140,9 @@ LAN address instead of `tcp://127.0.0.1`.
 | VRAM prefix cache / L1 RAM hit | 0.6 s | ~6,900 tok/s |
 | L2 NVMe hit (L1 cleared) | 0.8 s | ~5,250 tok/s |
 
-Cold prefill is compute-bound (~310–320 tok/s at these sizes); any cache
+With my setup, cold prefill is compute-bound (~310–320 tok/s at these sizes); any cache
 hit is 16–22×. L2 NVMe adds only ~0.2 s over L1 RAM — the two-tier setup
 effectively extends near-RAM-speed KV cache to the size of your disk.
-
-### Benchmarking gotchas
-
-- Measure true TTFT via SSE streaming (timestamp the first `data:` line);
-  header-arrival timing is always ~0.04 s and meaningless.
-- vLLM's log `Avg prompt throughput` is a windowed average — do not use it
-  for per-request PP.
-- A client that dies mid-stream still caches the prompt server-side; verify
-  "cold" runs by the absence of `Retrieved` lines.
-- Check `GPU KV cache size` in vLLM logs before attributing hits to VRAM —
-  if prompts exceed it, resends silently cascade to LMCache.
 
 ## Caveats
 
