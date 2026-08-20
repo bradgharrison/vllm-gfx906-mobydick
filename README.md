@@ -2,7 +2,7 @@
 
 > Single image, two roles: `vllm serve` (engine + KV connector) and
 > `lmcache server` (cache service). Both must come from the same image build.
-> Validated: Qwen3.6-27B on 4× MI50, TP=2, ROCm 7.2.1 / torch 2.11.
+> Validated: Qwen3.6/3.8-27B on 4× MI50, TP=T, ROCm 7.2.1 / torch 2.11.
 
 ### 1. Build the image (once)
 
