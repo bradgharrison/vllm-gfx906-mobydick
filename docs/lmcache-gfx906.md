@@ -31,12 +31,37 @@ Build (from the repo root — the script clones LMCache into the context):
 ./build_lmcache_docker.sh
 ```
 
-The image layers on top of `aiinfos/vllm-gfx906-mobydick:latest`:
+Two base images are supported; the script picks the matching Dockerfile
+automatically (override with `DOCKERFILE=`):
+
+| Base image | Dockerfile | Combined image | Native module |
+|---|---|---|---|
+| `aiinfos/vllm-gfx906-mobydick:latest` (vLLM 0.23.1) | `docker/Dockerfile.lmcache` | `aiinfos/vllm-gfx906-lmcache:latest` | `lmcache.c_ops` |
+| `unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1` (vLLM 0.26.0) | `docker/Dockerfile.unverbraucht-lmcache` | `vllm-gfx906-lmcache:0.26.0` | `lmcache.cuda_ops` / `lmcache.lmcache_native` |
+
+Targeting the 0.26.0 base:
+
+```bash
+BASE_IMAGE=unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1 \
+IMAGE_NAME=vllm-gfx906-lmcache \
+LMCACHE_REF=dev \
+./build_lmcache_docker.sh
+```
+
+Both bases share the same toolchain (torch 2.11.0a0, ROCm 7.2.1, Python 3.12),
+so the method is identical. The image layers on top of the base:
 - LMCache built from source with `BUILD_WITH_HIP=1 CXX=hipcc`
-  (HIP c_ops ABI-matched to the base torch)
+  (HIP extensions ABI-matched to the base torch)
 - `cupy-rocm-7-0` (GPU stream management)
 - `cufile-python` removed (NVIDIA-only; ROCm uses hipFile at runtime)
-- `grpcio` re-pinned to the fork's requirement after LMCache's deps bump it
+- `grpcio` re-pinned to the base's requirement after LMCache's deps bump it
+
+**0.26.0 note:** the native module was renamed — `lmcache.c_ops` no longer
+exists in the 0.26.0-era wheel (`lmcache 0.1.dev67`); it is now
+`lmcache.cuda_ops` + `lmcache.lmcache_native`. Anything importing
+`lmcache.c_ops` (old verify steps, old scripts) must import
+`lmcache.cuda_ops` / `lmcache.lmcache_native` instead. The 0.26.0 Dockerfile
+and the script's verify command already account for this.
 
 ## The three magic numbers (Qwen3.6-27B)
 

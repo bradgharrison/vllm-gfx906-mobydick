@@ -1,0 +1,87 @@
+# Build LMCache (HIP) on top of the unverbraucht vLLM GFX906 0.26.0 image.
+# Produces a single image that serves both roles:
+#   - vLLM with the LMCacheMPConnector importable inside the engine
+#   - `lmcache server` (standalone MP-mode cache server)
+#
+# Base: unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1
+#   torch 2.11.0a0+git70d99e9 / HIP 7.2.53211 / ROCm 7.2.1 / vLLM 0.26.0
+#   Python 3.12, grpcio 1.78.0 already pinned, hipcc+cmake+ninja in image.
+#
+# Deltas vs Dockerfile.lmcache (mobydick base):
+#   - LMCache source must be a recent dev build; the native module was RENAMED
+#     from lmcache.c_ops to lmcache.cuda_ops / lmcache.lmcache_native in the
+#     0.26.0-era wheel (lmcache 0.1.dev67). The final verify step reflects that.
+#   - cufile-python is NOT in the base, so its removal is best-effort.
+#
+# The LMCache source must be in the build context as ./LMCache
+# (git clone https://github.com/LMCache/LMCache.git LMCache).
+#
+# Build:
+#   docker build -t vllm-gfx906-lmcache:0.26.0 \
+#     --build-arg BASE_IMAGE=unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1 \
+#     -f docker/Dockerfile.unverbraucht-lmcache .
+#
+# Validated on: MI50 (gfx906), unverbraucht ROCm 7.2.1 / torch 2.11.0 /
+# vLLM 0.26.0, LMCache dev@1a43062 (0.1.dev67), Qwen3.6-27B.
+
+# syntax=docker/dockerfile:1.4
+ARG BASE_IMAGE=unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1
+FROM ${BASE_IMAGE} AS builder
+
+# Build deps (base already ships git/cmake/hipcc; keep for safety)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git cmake ninja-build pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for fast dependency resolution
+RUN pip install uv
+
+# Copy LMCache source (from the build context)
+COPY LMCache /workspace/LMCache
+WORKDIR /workspace/LMCache
+
+# Install build requirements
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install ninja packaging 'setuptools>=77.0.3,<81.0.0' 'setuptools_scm>=8' wheel
+
+# Build LMCache wheel with HIP extensions matching the base ROCm / torch.
+# BUILD_WITH_HIP=1 hipifies csrc/ and compiles with hipcc; the resulting
+# native extensions ABI-match the torch inside the base image.
+ENV BUILD_WITH_HIP=1
+ENV CXX=hipcc
+ENV PYTORCH_ROCM_ARCH=gfx906
+ENV ROCM_PATH=/opt/rocm
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 setup.py bdist_wheel --dist-dir=/dist_lmcache
+
+# Verify the wheel was built
+RUN ls -la /dist_lmcache/*.whl
+
+# ─── Final stage: install into a clean copy of the base image ─────────────
+
+FROM ${BASE_IMAGE} AS final
+
+# Copy the built wheel
+COPY --from=builder /dist_lmcache/ /tmp/dist_lmcache/
+
+# CuPy for ROCm 7.x — LMCache's GPU cache context uses cupy.cuda streams
+# for CUDA-IPC reconstruction and host-func dispatch.
+RUN pip install cupy-rocm-7-0
+
+# Install LMCache wheel, then fix dependency conflicts:
+# 1. cufile-python is NVIDIA-only (pulled in by some lmcache dep sets); on
+#    ROCm the GDS path routes to hipFile at runtime. Not in this base image,
+#    so removal is best-effort.
+# 2. LMCache's deps bump grpcio past vLLM's pin; restore it.
+RUN pip install /tmp/dist_lmcache/*.whl && rm -rf /tmp/dist_lmcache && \
+    (pip uninstall -y cufile-python || true) && \
+    pip install 'grpcio==1.78.0'
+
+# Verify both the Python package and the HIP extension import.
+# NOTE: in the 0.26.0-era wheel the native module is lmcache.cuda_ops +
+# lmcache.lmcache_native — lmcache.c_ops no longer exists.
+RUN python3 -c "import lmcache; import lmcache.cuda_ops, lmcache.lmcache_native; print('LMCache + HIP native OK')"
+
+WORKDIR /workspace
+CMD ["/bin/bash"]
