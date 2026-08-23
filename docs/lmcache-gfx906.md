@@ -36,7 +36,7 @@ automatically (override with `DOCKERFILE=`):
 
 | Base image | Dockerfile | Combined image | Native module |
 |---|---|---|---|
-| `aiinfos/vllm-gfx906-mobydick:latest` (vLLM 0.23.1) | `docker/Dockerfile.mobydick-lmcache` | `vllm-gfx906-lmcache:mobydick` | `lmcache.c_ops` |
+| `aiinfos/vllm-gfx906-mobydick:latest` — the official mobydick image, release `v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0` (vLLM 0.23.1) | `docker/Dockerfile.mobydick-lmcache` | `vllm-gfx906-lmcache:mobydick` | `lmcache.c_ops` |
 | `unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1` (vLLM 0.26.0) | `docker/Dockerfile.unverbraucht-lmcache` | `vllm-gfx906-lmcache:0.26.0` | `lmcache.cuda_ops` / `lmcache.lmcache_native` |
 
 Targeting the 0.26.0 base:

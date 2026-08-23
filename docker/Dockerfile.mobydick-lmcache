@@ -11,6 +11,11 @@
 #     --build-arg BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:latest \
 #     -f docker/Dockerfile.mobydick-lmcache .
 #
+# Base = the official mobydick image (Docker Hub, pushed by the fork's
+# build_and_push_docker.sh). The :latest alias currently tracks release
+# v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0 (sha256:5ac05f53ab78). Pin an explicit
+# release tag for a reproducible build.
+#
 # Validated on: MI50 (gfx906), mobydick ROCm 7.2.1 / torch 2.11.0,
 # LMCache dev@g4521c3f9, Qwen3.6-27B (Qwen3_5ForConditionalGeneration).
 
