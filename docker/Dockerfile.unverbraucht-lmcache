@@ -7,7 +7,7 @@
 #   torch 2.11.0a0+git70d99e9 / HIP 7.2.53211 / ROCm 7.2.1 / vLLM 0.26.0
 #   Python 3.12, grpcio 1.78.0 already pinned, hipcc+cmake+ninja in image.
 #
-# Deltas vs Dockerfile.lmcache (mobydick base):
+# Deltas vs Dockerfile.mobydick-lmcache (mobydick base):
 #   - LMCache source must be a recent dev build; the native module was RENAMED
 #     from lmcache.c_ops to lmcache.cuda_ops / lmcache.lmcache_native in the
 #     0.26.0-era wheel (lmcache 0.1.dev67). The final verify step reflects that.

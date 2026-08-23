@@ -12,7 +12,7 @@ set -e
 #
 # Two base-image generations are supported:
 #   - mobydick   (aiinfos/vllm-gfx906-mobydick:latest)
-#                -> docker/Dockerfile.lmcache            (imports lmcache.c_ops)
+#                -> docker/Dockerfile.mobydick-lmcache      (imports lmcache.c_ops)
 #   - unverbraucht (unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1, vLLM 0.26.0)
 #                -> docker/Dockerfile.unverbraucht-lmcache
 #                   (imports lmcache.cuda_ops / lmcache.lmcache_native)
@@ -30,7 +30,7 @@ set -e
 #   BASE_IMAGE  (default: aiinfos/vllm-gfx906-mobydick:latest; or the
 #                unverbraucht 0.26.0 image above)
 #   LMCACHE_REF (default: dev — a branch/tag/commit of LMCache/LMCache)
-#   DOCKERFILE  (default: auto — docker/Dockerfile.lmcache or
+#   DOCKERFILE  (default: auto — docker/Dockerfile.mobydick-lmcache or
 #                docker/Dockerfile.unverbraucht-lmcache based on BASE_IMAGE)
 
 IMAGE_NAME="${IMAGE_NAME:-aiinfos/vllm-gfx906-lmcache}"
@@ -42,7 +42,7 @@ DOCKERFILE="${DOCKERFILE:-}"   # auto-detected below if empty
 if [ -z "${DOCKERFILE:-}" ]; then
     case "${BASE_IMAGE}" in
         *unverbraucht*) DOCKERFILE="docker/Dockerfile.unverbraucht-lmcache" ;;
-        *)              DOCKERFILE="docker/Dockerfile.lmcache" ;;
+        *)              DOCKERFILE="docker/Dockerfile.mobydick-lmcache" ;;
     esac
 fi
 # 0.26.0-era wheel renamed lmcache.c_ops -> lmcache.cuda_ops/lmcache_native
@@ -62,7 +62,7 @@ echo "Using LMCache ref: ${LMCACHE_REF}"
 echo "Using Dockerfile:  ${DOCKERFILE}"
 echo "Using image name:  ${IMAGE_NAME}:latest"
 
-# Build context = repo root (for docker/Dockerfile.lmcache) + LMCache clone
+# Build context = repo root (for docker/Dockerfile.mobydick-lmcache) + LMCache clone
 cd "${SCRIPT_DIR}/.."
 if [ ! -d LMCache ]; then
     echo "Cloning LMCache at ref ${LMCACHE_REF}..."

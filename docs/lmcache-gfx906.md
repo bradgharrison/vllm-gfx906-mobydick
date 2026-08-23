@@ -12,7 +12,7 @@ Qwen3.5/3.6 interleave Mamba/Gated-DeltaNet (GDN) linear-attention layers
 with full-attention layers (`Qwen3_5ForConditionalGeneration`). LMCache
 supports this hybrid layout via `mamba_cache_mode="align"`, but no prebuilt
 image ships HIP-compiled LMCache against this fork's ROCm/torch stack.
-`docker/Dockerfile.lmcache` builds that image; this page documents how to
+`docker/Dockerfile.mobydick-lmcache` builds that image; this page documents how to
 run it.
 
 ## Image
@@ -36,7 +36,7 @@ automatically (override with `DOCKERFILE=`):
 
 | Base image | Dockerfile | Combined image | Native module |
 |---|---|---|---|
-| `aiinfos/vllm-gfx906-mobydick:latest` (vLLM 0.23.1) | `docker/Dockerfile.lmcache` | `aiinfos/vllm-gfx906-lmcache:latest` | `lmcache.c_ops` |
+| `aiinfos/vllm-gfx906-mobydick:latest` (vLLM 0.23.1) | `docker/Dockerfile.mobydick-lmcache` | `aiinfos/vllm-gfx906-lmcache:latest` | `lmcache.c_ops` |
 | `unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1` (vLLM 0.26.0) | `docker/Dockerfile.unverbraucht-lmcache` | `vllm-gfx906-lmcache:0.26.0` | `lmcache.cuda_ops` / `lmcache.lmcache_native` |
 
 Targeting the 0.26.0 base:

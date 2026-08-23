@@ -9,7 +9,7 @@
 # Build:
 #   docker build -t <TAG> \
 #     --build-arg BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:latest \
-#     -f docker/Dockerfile.lmcache .
+#     -f docker/Dockerfile.mobydick-lmcache .
 #
 # Validated on: MI50 (gfx906), mobydick ROCm 7.2.1 / torch 2.11.0,
 # LMCache dev@g4521c3f9, Qwen3.6-27B (Qwen3_5ForConditionalGeneration).
