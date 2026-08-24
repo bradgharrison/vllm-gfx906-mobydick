@@ -11,7 +11,9 @@ set -e
 # rather than rebuilding vLLM from source.
 #
 # Two base-image generations are supported:
-#   - mobydick   (aiinfos/vllm-gfx906-mobydick:latest)
+#   - mobydick   (aiinfos/vllm-gfx906-mobydick:v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0,
+#                pinned to the official release — the fork's releases are all
+#                `rc`-tagged, no non-rc "stable" exists)
 #                -> docker/Dockerfile.mobydick-lmcache      (imports lmcache.c_ops)
 #   - unverbraucht (unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1, vLLM 0.26.0)
 #                -> docker/Dockerfile.unverbraucht-lmcache
@@ -26,15 +28,15 @@ set -e
 #
 # Env overrides:
 #   IMAGE_NAME  (default: vllm-gfx906-lmcache — local tag only, not pushed)
-#   BASE_IMAGE  (default: aiinfos/vllm-gfx906-mobydick:latest; or the
-#                unverbraucht 0.26.0 image above)
+#   BASE_IMAGE  (default: aiinfos/vllm-gfx906-mobydick:v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0;
+#                or the unverbraucht 0.26.0 image above)
 #   TAG         (default: auto — "mobydick" or "0.26.0" to match BASE_IMAGE)
 #   LMCACHE_REF (default: dev — a branch/tag/commit of LMCache/LMCache)
 #   DOCKERFILE  (default: auto — docker/Dockerfile.mobydick-lmcache or
 #                docker/Dockerfile.unverbraucht-lmcache based on BASE_IMAGE)
 
 IMAGE_NAME="${IMAGE_NAME:-vllm-gfx906-lmcache}"
-BASE_IMAGE="${BASE_IMAGE:-aiinfos/vllm-gfx906-mobydick:latest}"
+BASE_IMAGE="${BASE_IMAGE:-aiinfos/vllm-gfx906-mobydick:v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0}"
 LMCACHE_REF="${LMCACHE_REF:-dev}"
 TAG="${TAG:-}"                 # auto-detected below if empty
 DOCKERFILE="${DOCKERFILE:-}"   # auto-detected below if empty

@@ -7,20 +7,20 @@
 # (git clone https://github.com/LMCache/LMCache.git LMCache).
 #
 # Build:
-#   docker build -t <TAG> \
-#     --build-arg BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:latest \
-#     -f docker/Dockerfile.mobydick-lmcache .
+#   docker build -t <TAG> -f docker/Dockerfile.mobydick-lmcache .
+#   (default base: pinned official release; override with --build-arg BASE_IMAGE=...)
 #
 # Base = the official mobydick image (Docker Hub, pushed by the fork's
-# build_and_push_docker.sh). The :latest alias currently tracks release
-# v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0 (sha256:5ac05f53ab78). Pin an explicit
-# release tag for a reproducible build.
+# build_and_push_docker.sh). Default is pinned to the latest release,
+# v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0 (sha256:5ac05f53ab78, published
+# 2026-06-21; at time of writing `:latest` points to the same digest).
+# Override BASE_IMAGE if you want a different tag (e.g. :latest to track).
 #
 # Validated on: MI50 (gfx906), mobydick ROCm 7.2.1 / torch 2.11.0,
 # LMCache dev@g4521c3f9, Qwen3.6-27B (Qwen3_5ForConditionalGeneration).
 
 # syntax=docker/dockerfile:1.4
-ARG BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:latest
+ARG BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0
 FROM ${BASE_IMAGE} AS builder
 
 # Build deps
