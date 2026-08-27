@@ -1,28 +1,41 @@
-# Build LMCache (HIP) on top of the unverbraucht vLLM GFX906 0.26.0 image.
+# Build LMCache (HIP) on top of the unverbraucht vLLM GFX906 image.
 # Produces a single image that serves both roles:
 #   - vLLM with the LMCacheMPConnector importable inside the engine
 #   - `lmcache server` (standalone MP-mode cache server)
 #
-# Base: unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1
-#   torch 2.11.0a0+git70d99e9 / HIP 7.2.53211 / ROCm 7.2.1 / vLLM 0.26.0
-#   Python 3.12, grpcio 1.78.0 already pinned, hipcc+cmake+ninja in image.
+# This Dockerfile is base-agnostic across the unverbraucht line — pass the
+# base via --build-arg BASE_IMAGE (the build script does this for you):
+#   - unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1   (torch 2.11.0a0, ROCm 7.2.1)
+#   - unverbraucht/vllm-gfx906:0.28.0rc2-rocm-7.14 (torch 2.13.0,  ROCm 7.14)
+# LMCache is built from source against the base's torch, so the same Dockerfile
+# works for every unverbraucht ROCm build; only the base changes.
 #
 # Deltas vs Dockerfile.mobydick-lmcache (mobydick base):
 #   - LMCache source must be a recent dev build; the native module was RENAMED
 #     from lmcache.c_ops to lmcache.cuda_ops / lmcache.lmcache_native in the
 #     0.26.0-era wheel (lmcache 0.1.dev67). The final verify step reflects that.
 #   - cufile-python is NOT in the base, so its removal is best-effort.
+#   - cupy: only cupy-rocm-7-0 exists on PyPI (no cupy-rocm-7-1), so the same
+#     wheel is used across ROCm 7.x bases; it is the ROCm 7.x line.
+#
+# NOTE: LMCache dev currently requires torch==2.13.0 for its build; the
+# 0.28.0rc2 base ships exactly torch 2.13.0+gfx906, so the two line up. If you
+# build against an older base (e.g. 0.26.0 / torch 2.11.0a0), the in-image
+# torch is used for the extension build and the torch pin in LMCache's
+# build-system is not enforced (no build isolation).
 #
 # The LMCache source must be in the build context as ./LMCache
 # (git clone https://github.com/LMCache/LMCache.git LMCache).
 #
-# Build:
-#   docker build -t vllm-gfx906-lmcache:0.26.0 \
-#     --build-arg BASE_IMAGE=unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1 \
-#     -f docker/Dockerfile.unverbraucht-lmcache .
+# Build (the build script does this for you — see build_lmcache_docker.sh):
+#   BASE_IMAGE=unverbraucht/vllm-gfx906:0.28.0rc2-rocm-7.14 ./build_lmcache_docker.sh
+#   # -> vllm-gfx906-lmcache:0.28.0rc2
+#   (or by hand: docker build -t vllm-gfx906-lmcache:0.28.0rc2 \
+#       --build-arg BASE_IMAGE=unverbraucht/vllm-gfx906:0.28.0rc2-rocm-7.14 \
+#       -f docker/Dockerfile.unverbraucht-lmcache .)
 #
-# Validated on: MI50 (gfx906), unverbraucht ROCm 7.2.1 / torch 2.11.0 /
-# vLLM 0.26.0, LMCache dev@1a43062 (0.1.dev67), Qwen3.6-27B.
+# Validated on: MI50 (gfx906), unverbraucht 0.28.0rc2 / torch 2.13.0 /
+# ROCm 7.14, LMCache dev (v0.5.4 era), Qwen3.6-27B.
 
 # syntax=docker/dockerfile:1.4
 ARG BASE_IMAGE=unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1

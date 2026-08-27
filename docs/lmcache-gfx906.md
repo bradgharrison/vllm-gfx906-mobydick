@@ -37,19 +37,21 @@ automatically (override with `DOCKERFILE=`):
 | Base image | Dockerfile | Combined image | Native module |
 |---|---|---|---|
 | `aiinfos/vllm-gfx906-mobydick:v0.23.1rc0.x-rocm7.2.1-pytorch2.11.0` — the pinned official mobydick release (vLLM 0.23.1; the fork's releases are all `rc`-tagged, there is no non-rc "stable"; use `--build-arg BASE_IMAGE=aiinfos/vllm-gfx906-mobydick:latest` to track instead) | `docker/Dockerfile.mobydick-lmcache` | `vllm-gfx906-lmcache:mobydick` | `lmcache.c_ops` |
-| `unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1` (vLLM 0.26.0) | `docker/Dockerfile.unverbraucht-lmcache` | `vllm-gfx906-lmcache:0.26.0` | `lmcache.cuda_ops` / `lmcache.lmcache_native` |
+| `unverbraucht/vllm-gfx906:0.28.0rc2-rocm-7.14` (vLLM 0.28.0rc2, torch 2.13.0) | `docker/Dockerfile.unverbraucht-lmcache` | `vllm-gfx906-lmcache:0.28.0rc2` | `lmcache.cuda_ops` / `lmcache.lmcache_native` |
+| `unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1` (vLLM 0.26.0, torch 2.11.0a0) | `docker/Dockerfile.unverbraucht-lmcache` | `vllm-gfx906-lmcache:0.26.0` | `lmcache.cuda_ops` / `lmcache.lmcache_native` |
 
-Targeting the 0.26.0 base:
+Targeting an unverbraucht ROCm base (tag auto-derived from the base tag):
 
 ```bash
-BASE_IMAGE=unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1 \
+BASE_IMAGE=unverbraucht/vllm-gfx906:0.28.0rc2-rocm-7.14 \
 IMAGE_NAME=vllm-gfx906-lmcache \
 LMCACHE_REF=dev \
 ./build_lmcache_docker.sh
+# -> vllm-gfx906-lmcache:0.28.0rc2
 ```
 
-Both bases share the same toolchain (torch 2.11.0a0, ROCm 7.2.1, Python 3.12),
-so the method is identical. The image layers on top of the base:
+The unverbraucht line shares one Dockerfile and the same method (torch 2.11.0a0→2.13.0,
+ROCm 7.2.1→7.14 across versions, Python 3.12); only the base changes. The image layers on top of the base:
 - LMCache built from source with `BUILD_WITH_HIP=1 CXX=hipcc`
   (HIP extensions ABI-matched to the base torch)
 - `cupy-rocm-7-0` (GPU stream management)

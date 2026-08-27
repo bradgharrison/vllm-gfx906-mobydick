@@ -15,16 +15,22 @@ set -e
 #                pinned to the official release — the fork's releases are all
 #                `rc`-tagged, no non-rc "stable" exists)
 #                -> docker/Dockerfile.mobydick-lmcache      (imports lmcache.c_ops)
-#   - unverbraucht (unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1, vLLM 0.26.0)
+#   - unverbraucht (unverbraucht/vllm-gfx906:<ver>-rocm-<ver>)
+#     e.g. :0.26.0-rocm-7.2.1 or :0.28.0rc2-rocm-7.14
 #                -> docker/Dockerfile.unverbraucht-lmcache
 #                   (imports lmcache.cuda_ops / lmcache.lmcache_native)
+#   The output tag is derived from the base tag (the -rocm-*/-cu* suffix is
+#   stripped), so 0.28.0rc2-rocm-7.14 -> vllm-gfx906-lmcache:0.28.0rc2.
 # The script picks the matching Dockerfile from BASE_IMAGE (override with
 # DOCKERFILE).
 #
 # Usage:
-#   ./build_lmcache_docker.sh
-#   # or target the 0.26.0 base (tags vllm-gfx906-lmcache:0.26.0):
+#   ./build_lmcache_docker.sh                    # default: pinned mobydick base
+#   # or target an unverbraucht ROCm base (tag auto-derived from the base tag):
+#   BASE_IMAGE=unverbraucht/vllm-gfx906:0.28.0rc2-rocm-7.14 ./build_lmcache_docker.sh
+#   #   -> vllm-gfx906-lmcache:0.28.0rc2
 #   BASE_IMAGE=unverbraucht/vllm-gfx906:0.26.0-rocm-7.2.1 ./build_lmcache_docker.sh
+#   #   -> vllm-gfx906-lmcache:0.26.0
 #
 # Env overrides:
 #   IMAGE_NAME  (default: vllm-gfx906-lmcache — local tag only, not pushed)
@@ -42,13 +48,24 @@ TAG="${TAG:-}"                 # auto-detected below if empty
 DOCKERFILE="${DOCKERFILE:-}"   # auto-detected below if empty
 
 # Pick the matching Dockerfile + tag from the base image (unless overridden).
-# Tag mirrors the base so the two builds pair up: :mobydick and :0.26.0.
+# Tag mirrors the base version so the two builds pair up: :mobydick and the
+# unverbraucht version (e.g. 0.26.0 -> :0.26.0, 0.28.0rc2-rocm-7.14 -> :0.28.0rc2).
 if [ -z "${DOCKERFILE:-}" ]; then
     case "${BASE_IMAGE}" in
-        *unverbraucht*) DOCKERFILE="docker/Dockerfile.unverbraucht-lmcache"
-                        TAG="${TAG:-0.26.0}" ;;
-        *)              DOCKERFILE="docker/Dockerfile.mobydick-lmcache"
-                        TAG="${TAG:-mobydick}" ;;
+        *unverbraucht*)
+            DOCKERFILE="docker/Dockerfile.unverbraucht-lmcache"
+            # Derive the output tag from the base tag: 0.28.0rc2-rocm-7.14 -> 0.28.0rc2
+            # (strip the trailing -rocm-<x> / -cu< x> toolchain suffix, if present).
+            if [ -z "${TAG:-}" ]; then
+                BASE_TAG="${BASE_IMAGE##*:}"            # 0.28.0rc2-rocm-7.14
+                BASE_TAG="${BASE_TAG%%-rocm-*}"          # 0.28.0rc2
+                BASE_TAG="${BASE_TAG%%-cu*}"              # 0.28.0rc2
+                TAG="${BASE_TAG:-unverbraucht}"
+            fi
+            ;;
+        *)
+            DOCKERFILE="docker/Dockerfile.mobydick-lmcache"
+            TAG="${TAG:-mobydick}" ;;
     esac
 fi
 # 0.26.0-era wheel renamed lmcache.c_ops -> lmcache.cuda_ops/lmcache_native
